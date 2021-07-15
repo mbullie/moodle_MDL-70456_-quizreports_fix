@@ -1,0 +1,56 @@
+From a48e3e28b1f947ee57cc5fce15c77336326d8f71 Mon Sep 17 00:00:00 2001
+From: unknown <administrator@HSDC.HIGHSKILLS.CO.IL>
+Date: Thu, 15 Jul 2021 03:31:34 -0700
+Subject: [PATCH] Highskills - partly fix for MDL-70456 to display custom
+ profile fields     declared in $CFG->showuseridentity for quiz reports only -
+ Michael         Bulwick 15072021
+
+---
+ mod/quiz/report/attemptsreport.php       |  7 ++++++-
+ mod/quiz/report/attemptsreport_table.php | 12 ++++++++++++
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/mod/quiz/report/attemptsreport.php b/mod/quiz/report/attemptsreport.php
+index c54f2efa091..c96befe5dec 100644
+--- a/mod/quiz/report/attemptsreport.php
++++ b/mod/quiz/report/attemptsreport.php
+@@ -204,7 +204,12 @@ abstract class quiz_attempts_report extends quiz_default_report {
+         }
+ 
+         // TODO Does not support custom user profile fields (MDL-70456).
+-        $extrafields = \core_user\fields::get_identity_fields($this->context, false);
++        
++		//HIGHSKILLS START - changed to display custom profile fields declared in $CFG->showuseridentity
++		//$extrafields = \core_user\fields::get_identity_fields($coursecontext, false);
++		$extrafields = \core_user\fields::get_identity_fields($coursecontext, true);
++		//HIGHSKILLS END 
++		
+         foreach ($extrafields as $field) {
+             $columns[] = $field;
+             $headers[] = \core_user\fields::get_display_name($field);
+diff --git a/mod/quiz/report/attemptsreport_table.php b/mod/quiz/report/attemptsreport_table.php
+index 48509bb2bdf..28fedc7df5a 100644
+--- a/mod/quiz/report/attemptsreport_table.php
++++ b/mod/quiz/report/attemptsreport_table.php
+@@ -447,6 +447,18 @@ abstract class quiz_attempts_report_table extends table_sql {
+             // To explain that last bit, timefinish can be non-zero and less
+             // than timestart when you have two load-balanced servers with very
+             // badly synchronised clocks, and a student does a really quick attempt.
++			
++			//HIGHSKILLS START - added custom profile fields to report 
++			$normalfields = \core_user\fields::get_identity_fields($coursecontext, false);
++			$myextrafields = \core_user\fields::get_identity_fields($coursecontext, true);
++			$customprofilefields = array_diff($myextrafields, $normalfields);
++			$customfieldssql =' ';
++			foreach($customprofilefields AS $customfield){
++				$myfieldname = str_replace("profile_field_", "" ,$customfield);
++				$customfieldssql.=",(SELECT uid.data FROM {user_info_field} uif, {user_info_data} uid WHERE uif.shortname ='".$myfieldname."' AND uif.id = uid.fieldid AND uid.userid = u.id ) AS profile_field_".$myfieldname." ";
++			}
++			$fields .= $customfieldssql;
++			//HIGHSKILLS END
+ 
+         // This part is the same for all cases. Join the users and quiz_attempts tables.
+         $from = " {user} u";
+-- 
+2.32.0.windows.2
+
